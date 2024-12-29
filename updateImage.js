@@ -13,6 +13,7 @@ if (!apiKey) {
   process.exit(1); // Exit the process if API key is missing
 }
 const openai = new OpenAI({ apiKey });
+
 // File paths
 const FILE_PATHS = {
   systemRole: "./role_system.txt",
