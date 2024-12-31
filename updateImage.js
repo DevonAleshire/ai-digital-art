@@ -1,9 +1,11 @@
 import dotenv from "dotenv";
 import OpenAI from "openai";
 import axios from "axios";
-import cron from 'node-cron';
+import cron from "node-cron";
 import fs from "fs";
 import { once } from "events";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -21,6 +23,8 @@ const FILE_PATHS = {
   userRole: "./role_user.txt",
   prompts: "./prompts.txt",
 };
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Utility to read file content into an array
 function readFileToArray(filePath) {
@@ -110,7 +114,7 @@ async function fetchImage() {
       throw new Error("Insufficient data to proceed.");
     }
 
-    console.log(`\nSystem Content: ${systemContent}`);
+    console.log(`System Content: ${systemContent}`);
     console.log(`User Content: ${userContent}`);
     console.log(`Random Prompt: ${randPromptVal}\n`);
 
@@ -119,13 +123,14 @@ async function fetchImage() {
     const prompt = useGeneratedPrompt
       ? await generatePrompt(systemContent, userContent)
       : randPromptVal;
-    
+
     console.log(
       useGeneratedPrompt
         ? `Generated Prompt: ${prompt}`
         : `Using Random Prompt: ${prompt}`
     );
 
+    // Generate the image
     const response = await openai.images.generate({
       model: "dall-e-3",
       prompt: `${prompt}\nIf the image includes people or animals, ensure their eyes, faces, and bodies are realistically proportioned and free from distortions, maintaining a natural and cohesive appearance.`,
@@ -138,37 +143,75 @@ async function fetchImage() {
 
     console.log("Image URL:", imageUrl);
 
+    // Determine file paths
+    const today = new Date();
+    const dateStr = today.toISOString().split("T")[0].replace(/-/g, ""); // YYYYMMDD
+    const dirName = `${dateStr}_digital-art`;
+    const dirPath = path.join(__dirname, dirName);
+
+    // Ensure the directory exists
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath);
+      console.log(`Created directory: ${dirPath}`);
+    }
+
+    // Determine the next image number
+    const existingFiles = fs
+      .readdirSync(dirPath)
+      .filter((file) => file.startsWith(dateStr));
+    const nextImageNumber = existingFiles.length + 1;
+    const imageFileName = `${dateStr}_image_${nextImageNumber}.png`;
+    const imageFilePath = path.join(dirPath, imageFileName);
+
+    // Save the image
     const imageResponse = await axios({
       url: imageUrl,
       method: "GET",
       responseType: "stream",
     });
 
-    const filePath = "./daily_art.png";
-    const writer = fs.createWriteStream(filePath);
-    imageResponse.data.pipe(writer);
+    const dailyFilePath = "./daily_art.png";
 
-    await saveImageToFile(writer, filePath);
-    return filePath;
+    // Create separate writers
+    const dailyWriter = fs.createWriteStream(dailyFilePath);
+    const folderWriter = fs.createWriteStream(imageFilePath);
+
+    // Pipe the image data to both writers
+    imageResponse.data.pipe(dailyWriter);
+    imageResponse.data.pipe(folderWriter);
+
+    await saveImageToFile(dailyWriter, dailyFilePath);
+    await saveImageToFile(folderWriter, imageFilePath);
+
+    // Update the prompt file
+    const promptFileName = `${dateStr}_prompts.txt`;
+    const promptFilePath = path.join(dirPath, promptFileName);
+    const promptEntry = `${imageFileName}: ${prompt}\n`;
+
+    fs.appendFileSync(promptFilePath, promptEntry, "utf8");
+    console.log(`Appended prompt to file: ${promptFilePath}`);
   } catch (error) {
     console.error("Error fetching image:", error);
   }
 }
 
-cron.schedule('*/5 * * * *', async () => {
-  console.log('Fetching a new image...\n');
-  
+// Schedule the script to run periodically
+cron.schedule("*/5 * * * *", async () => {
+  console.log("Fetching a new image...\n");
+
   // Start Time
   const startTime = performance.now();
-  
+
   // Run the process
-  fetchImage();
-  
+  await fetchImage();
+
   // End Time
   const endTime = performance.now();
-  const executionTime = `Execution Time: ${(endTime - startTime).toFixed(2)}ms\n`;
-  
-  // Log to file
-  fs.appendFileSync(`execution_time.log`, executionTime, 'utf8');
+  const executionTime = `Execution Time: ${(endTime - startTime).toFixed(
+    2
+  )}ms\n`;
 
+  // Log to file
+  fs.appendFileSync(`execution_time.log`, executionTime, "utf8");
+  console.log(executionTime);
 });
