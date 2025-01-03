@@ -1,2 +1,2 @@
-import imageService from "./services/imageService.js";
-await imageService.fetchImage();
+import "./scheduler.js";
+console.log("Application running...\n");
