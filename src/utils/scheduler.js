@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import imageService from "./services/imageService.js";
+import imageService from "../services/imageService.js";
 
 // // Schedule the script to run periodically
 cron.schedule("*/1 * * * *", async () => {
@@ -13,11 +13,7 @@ cron.schedule("*/1 * * * *", async () => {
 
   // End Time
   const endTime = performance.now();
-  const executionTime = `Execution Time: ${(endTime - startTime).toFixed(
-    2
-  )}ms\n`;
 
-  // Log to file
-  fs.appendFileSync(`execution_time.log`, executionTime, "utf8");
+  writeToExecutionLog();
   console.log(executionTime);
 });
