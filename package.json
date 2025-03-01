@@ -2,9 +2,10 @@
   "name": "digital-art",
   "version": "1.0.0",
   "description": "",
-  "main": "updateImage.js",
+  "main": "main.js",
   "type":"module",
   "scripts": {
+    "start": "node src/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
