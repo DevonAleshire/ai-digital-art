@@ -7,6 +7,26 @@ import { once } from "events";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const FILE_KEYS = {
+  SYSTEM_ROLE: "systemRole",
+  USER_ROLE: "userRole",
+  PROMPTS: "prompts",
+  DAILY_ART: "dailyArt",
+  ARCHIVE: "archive",
+};
+
+const FILE_PATHS = {
+  [FILE_KEYS.SYSTEM_ROLE]: path.resolve("src/prompts/role_system.txt"),
+  [FILE_KEYS.USER_ROLE]: path.resolve("src/prompts/role_user.txt"),
+  [FILE_KEYS.PROMPTS]: path.resolve("src/prompts/prompts.txt"),
+  [FILE_KEYS.DAILY_ART]: path.resolve("src/daily_art.png"),
+  [FILE_KEYS.ARCHIVE]: path.resolve("src/archive"),
+};
+
+const sysRoleContent = readFileToArray(FILE_PATHS.systemRole);
+const userRoleContent = readFileToArray(FILE_PATHS.userRole);
+const userGenPrompts = readFileToArray(FILE_PATHS.prompts);
+
 /**
  * Reads the content of a file and converts it into an array of non-empty lines.
  *
@@ -104,8 +124,8 @@ function getNextImageFilePath(dirPath, dateStr) {
  * @param {string} [baseDir=path.resolve("src/archive")] - The base directory where today's directory will be created.
  * @returns {{ dirPath: string, dateStr: string }} An object containing the directory path and the date string.
  */
-function getTodayDirectory(baseDir = path.resolve("src/archive")) {
-  const baseDirPath = path.resolve(baseDir);
+function getTodayDirectory() {
+  const baseDirPath = path.resolve(FILE_PATHS.archive);
   const today = new Date();
   const dateStr = today.toISOString().split("T")[0].replace(/-/g, ""); // YYYYMMDD
   const dirName = `${dateStr}_digital-art`;
@@ -116,6 +136,40 @@ function getTodayDirectory(baseDir = path.resolve("src/archive")) {
   return { dirPath, dateStr };
 }
 
+function writeToExecutionLog(startTime, endTime) {
+  const executionTime = `Execution Time: ${(endTime - startTime).toFixed(
+    2
+  )}ms\n`;
+
+  // Log to file
+  fs.appendFileSync(`execution_time.log`, executionTime, "utf8");
+}
+
+function getRandomUserGeneratedPrompt() {
+  const randomPrompt = getRandomValue(userGenPrompts);
+  console.log(`Random Prompt: ${randomPrompt}\n`);
+
+  return randomPrompt;
+}
+
+function getRandomSystemContent() {
+  return getRandomValue(sysRoleContent);
+}
+function getRandomUserContent() {
+  return getRandomValue(userRoleContent);
+}
+// Get a random value from an array
+function getRandomValue(array) {
+  if (!Array.isArray(array) || array.length === 0) {
+    console.warn(
+      "Warning: Attempted to get a random value from an empty array."
+    );
+    return null;
+  }
+  const randomIndex = Math.floor(Math.random() * array.length);
+  return array[randomIndex];
+}
+
 export default {
   readFileToArray,
   ensureDirExists,
@@ -123,4 +177,7 @@ export default {
   saveToMultipleDestinations,
   getNextImageFilePath,
   getTodayDirectory,
+  getRandomUserGeneratedPrompt,
+  getRandomSystemContent,
+  getRandomUserContent,
 };
