@@ -10,29 +10,37 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Fetches and saves a daily digital art image using DALL-E.
- * Randomly chooses between a generated prompt or a pre-defined one.
+ * Randomly chooses between a generated prompt or a pre-defined one,
+ * unless an override prompt is provided (e.g. from an SMS).
+ * @param {string|null} overridePrompt - Optional prompt to use directly, skipping random selection.
  * @throws {Error} If image generation or file operations fail.
  */
-async function fetchImage() {
+async function fetchImage(overridePrompt = null) {
   try {
-    const useGeneratedPrompt = Math.random() > 0.5;
+    let prompt;
 
-    const prompt = useGeneratedPrompt
-      ? await promptService.generatePrompt(
-          fileUtils.getRandomSystemContent(),
-          fileUtils.getRandomUserContent()
-        )
-      : fileUtils.getRandomUserGeneratedPrompt();
+    if (overridePrompt) {
+      prompt = overridePrompt;
+      console.log(`SMS Override Prompt: ${prompt}`);
+    } else {
+      const useGeneratedPrompt = Math.random() > 0.5;
+      prompt = useGeneratedPrompt
+        ? await promptService.generatePrompt(
+            fileUtils.getRandomSystemContent(),
+            fileUtils.getRandomUserContent()
+          )
+        : fileUtils.getRandomUserGeneratedPrompt();
+
+      console.log(
+        useGeneratedPrompt
+          ? `Generated Prompt: ${prompt}`
+          : `Using Random Prompt: ${prompt}`
+      );
+    }
 
     if (!prompt) {
       throw new Error("Insufficient data to proceed.");
     }
-
-    console.log(
-      useGeneratedPrompt
-        ? `Generated Prompt: ${prompt}`
-        : `Using Random Prompt: ${prompt}`
-    );
 
     // Generate the image with DALL-E 3
     const response = await openai.images.generate({
