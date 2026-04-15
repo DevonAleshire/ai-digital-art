@@ -3,11 +3,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 import twilio from "twilio";
-import imageService from "./services/imageService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
+const { default: imageService } = await import("./services/imageService.js");
 await import("./utils/scheduler.js");
 
 // --- SMS webhook server ---
