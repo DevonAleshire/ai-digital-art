@@ -129,6 +129,9 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+# macOS
+.DS_Store
+
 # App Files
 daily_art.png
 *_digital-art/
