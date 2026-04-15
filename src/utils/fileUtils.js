@@ -14,11 +14,11 @@ const FILE_KEYS = {
 };
 
 const FILE_PATHS = {
-  [FILE_KEYS.SYSTEM_ROLE]: path.resolve("src/prompts/role_system.txt"),
-  [FILE_KEYS.USER_ROLE]: path.resolve("src/prompts/role_user.txt"),
-  [FILE_KEYS.PROMPTS]: path.resolve("src/prompts/prompts.txt"),
-  [FILE_KEYS.DAILY_ART]: path.resolve("src/daily_art.png"),
-  [FILE_KEYS.ARCHIVE]: path.resolve("src/archive"),
+  [FILE_KEYS.SYSTEM_ROLE]: path.resolve(__dirname, "../prompts/role_system.txt"),
+  [FILE_KEYS.USER_ROLE]: path.resolve(__dirname, "../prompts/role_user.txt"),
+  [FILE_KEYS.PROMPTS]: path.resolve(__dirname, "../prompts/prompts.txt"),
+  [FILE_KEYS.DAILY_ART]: path.resolve(__dirname, "../daily_art.png"),
+  [FILE_KEYS.ARCHIVE]: path.resolve(__dirname, "../archive"),
 };
 
 // Lazy-load content on demand instead of at import time
@@ -163,9 +163,6 @@ function getRandomValue(array) {
 function getRandomUserGeneratedPrompt() {
   _initializeContent();
   const randomPrompt = getRandomValue(userGenPrompts);
-  if (randomPrompt) {
-    console.log(`Random Prompt: ${randomPrompt}\n`);
-  }
   return randomPrompt;
 }
 

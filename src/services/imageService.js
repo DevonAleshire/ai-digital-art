@@ -1,9 +1,12 @@
 import axios from "axios";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import openai from "../api/openai.js";
 import fileUtils from "../utils/fileUtils.js";
 import * as promptService from "./promptService.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Fetches and saves a daily digital art image using DALL-E.
@@ -57,7 +60,7 @@ async function fetchImage() {
     });
 
     const fileDestinations = [
-      { filePath: "src/daily_art.png" },
+      { filePath: path.resolve(__dirname, "../daily_art.png") },
       { filePath: imgFilePath },
     ];
 

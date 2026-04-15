@@ -1,5 +1,9 @@
 import dotenv from "dotenv";
-import "./utils/scheduler.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+await import("./utils/scheduler.js");
 console.log("Application running...\n");
