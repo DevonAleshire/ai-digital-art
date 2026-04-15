@@ -1,15 +1,18 @@
-import fs from "fs";
 import axios from "axios";
 import path from "path";
+import fs from "fs";
 import openai from "../api/openai.js";
 import fileUtils from "../utils/fileUtils.js";
 import * as promptService from "./promptService.js";
 
-// Fetch and save an image based on a generated or random prompt
+/**
+ * Fetches and saves a daily digital art image using DALL-E.
+ * Randomly chooses between a generated prompt or a pre-defined one.
+ * @throws {Error} If image generation or file operations fail.
+ */
 async function fetchImage() {
   try {
-    // Decide whether to generate a new prompt or use the existing one
-    const useGeneratedPrompt = Math.round(Math.random());
+    const useGeneratedPrompt = Math.random() > 0.5;
 
     const prompt = useGeneratedPrompt
       ? await promptService.generatePrompt(
@@ -17,10 +20,6 @@ async function fetchImage() {
           fileUtils.getRandomUserContent()
         )
       : fileUtils.getRandomUserGeneratedPrompt();
-
-    //const systemContent = generalUtils.getRandomValue(config.sysRoleContent);
-    //const userContent = generalUtils.getRandomValue(config.userRoleContent);
-    //const randomPrompt = generalUtils.getRandomValue(config.userGenPrompts);
 
     if (!prompt) {
       throw new Error("Insufficient data to proceed.");
@@ -32,10 +31,7 @@ async function fetchImage() {
         : `Using Random Prompt: ${prompt}`
     );
 
-    // const prompt =
-    //   "Act like a professional painter throughout time and recreate some of the best works of art, or create something new inspired by famous works of art. The output should only be the artwork so it can be prominently displayed on a digital monitor for all to see.";
-
-    // Generate the image
+    // Generate the image with DALL-E 3
     const response = await openai.images.generate({
       model: "dall-e-3",
       prompt: `${prompt}\nIf the image includes people or animals, ensure their eyes, faces, and bodies are realistically proportioned and free from distortions, maintaining a natural and cohesive appearance.`,
@@ -53,11 +49,7 @@ async function fetchImage() {
       dateStr
     );
 
-    console.log("Image URL:", imageUrl);
-    console.log("FILE_PATHS.dailyArt:", "src/daily_art.png");
-    console.log("imgFilePath:", imgFilePath);
-
-    // Save the image
+    // Download the image
     const imageResponse = await axios({
       url: imageUrl,
       method: "GET",
@@ -65,7 +57,7 @@ async function fetchImage() {
     });
 
     const fileDestinations = [
-      { filePath: "src/daily_art.png"}, //FILE_PATHS.dailyArt },
+      { filePath: "src/daily_art.png" },
       { filePath: imgFilePath },
     ];
 
@@ -74,7 +66,7 @@ async function fetchImage() {
       fileDestinations
     );
 
-    // Update the prompt file
+    // Record the prompt with the image
     const promptFileName = "prompts.txt";
     const promptFilePath = path.join(dirPath, promptFileName);
     const promptEntry = `${imgFileName}: ${prompt}\n`;
@@ -83,6 +75,7 @@ async function fetchImage() {
     console.log(`Appended prompt to file: ${promptFilePath}`);
   } catch (error) {
     console.error("Error fetching image:", error);
+    throw error;
   }
 }
 
