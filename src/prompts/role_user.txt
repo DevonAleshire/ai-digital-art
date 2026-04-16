@@ -1,1 +1,0 @@
-Generate a single image generation prompt for a digital art gallery display. The prompt should be vivid, specific, and describe a scene that would make compelling wall art. Output only the prompt text, nothing else.
