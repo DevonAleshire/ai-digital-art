@@ -15,13 +15,11 @@ const supabase =
     : null;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DAILY_ART_PATH = path.resolve(__dirname, "../daily_art.png");
 
 /**
- * Fetches and saves a daily digital art image using DALL-E.
- * Randomly chooses between a generated prompt or a pre-defined one,
- * unless an override prompt is provided (e.g. from an SMS).
- * @param {string|null} overridePrompt - Optional prompt to use directly, skipping random selection.
- * @throws {Error} If image generation or file operations fail.
+ * Generates a new image, saves it as daily_art.png, and uploads to Supabase.
+ * @param {string|null} overridePrompt - Optional prompt (e.g. from SMS), skips random selection.
  */
 async function fetchImage(overridePrompt = null) {
   try {
@@ -33,10 +31,7 @@ async function fetchImage(overridePrompt = null) {
     } else {
       const useGeneratedPrompt = Math.random() > 0.5;
       prompt = useGeneratedPrompt
-        ? await promptService.generatePrompt(
-            fileUtils.getRandomSystemContent(),
-            fileUtils.getRandomUserContent()
-          )
+        ? await promptService.generatePrompt()
         : fileUtils.getRandomUserGeneratedPrompt();
 
       console.log(
@@ -46,9 +41,7 @@ async function fetchImage(overridePrompt = null) {
       );
     }
 
-    if (!prompt) {
-      throw new Error("Insufficient data to proceed.");
-    }
+    if (!prompt) throw new Error("Insufficient data to proceed.");
 
     // Generate the image with DALL-E 3
     const response = await openai.images.generate({
@@ -65,41 +58,17 @@ async function fetchImage(overridePrompt = null) {
     const description = await promptService.generateDescription(revisedPrompt);
     console.log(`Description: ${description}`);
 
-    // Determine file paths
-    const { dirPath, dateStr } = fileUtils.getTodayDirectory();
-    const { imgFileName, imgFilePath } = fileUtils.getNextImageFilePath(
-      dirPath,
-      dateStr
-    );
+    // Download image as a buffer
+    const imageResponse = await axios({ url: imageUrl, method: "GET", responseType: "arraybuffer" });
+    const imageBuffer = Buffer.from(imageResponse.data);
 
-    // Download the image
-    const imageResponse = await axios({
-      url: imageUrl,
-      method: "GET",
-      responseType: "stream",
-    });
-
-    const fileDestinations = [
-      { filePath: path.resolve(__dirname, "../daily_art.png") },
-      { filePath: imgFilePath },
-    ];
-
-    await fileUtils.saveToMultipleDestinations(
-      imageResponse.data,
-      fileDestinations
-    );
-
-    // Record the prompt with the image
-    const promptFileName = "prompts.txt";
-    const promptFilePath = path.join(dirPath, promptFileName);
-    const promptEntry = `${imgFileName}: ${prompt}\n`;
-
-    fs.appendFileSync(promptFilePath, promptEntry, "utf8");
-    console.log(`Appended prompt to file: ${promptFilePath}`);
+    // Save to daily_art.png for the display frame
+    fs.writeFileSync(DAILY_ART_PATH, imageBuffer);
+    console.log(`Saved daily_art.png`);
 
     // Upload to Supabase Storage and record metadata
     if (supabase) {
-      await uploadToSupabase({ imgFilePath, imgFileName, prompt, description, overridePrompt, dateStr });
+      await uploadToSupabase({ imageBuffer, prompt, description, overridePrompt });
     } else {
       console.warn("Supabase not configured — skipping cloud upload.");
     }
@@ -110,24 +79,25 @@ async function fetchImage(overridePrompt = null) {
 }
 
 /**
- * Uploads a generated image to Supabase Storage and inserts a metadata row.
+ * Uploads the image buffer to Supabase Storage and inserts a metadata row.
  * @param {object} opts
- * @param {string} opts.imgFilePath  - Local path to the saved PNG
- * @param {string} opts.imgFileName  - Base filename (e.g. 20260415_image_1.png)
- * @param {string} opts.prompt       - The prompt used to generate the image
+ * @param {Buffer}      opts.imageBuffer    - The raw image bytes
+ * @param {string}      opts.prompt         - The prompt used to generate the image
+ * @param {string}      opts.description    - Short AI-generated gallery description
  * @param {string|null} opts.overridePrompt - Original SMS override, if any
- * @param {string} opts.dateStr      - YYYYMMDD string used for path partitioning
  */
-async function uploadToSupabase({ imgFilePath, imgFileName, prompt, description, overridePrompt, dateStr }) {
+async function uploadToSupabase({ imageBuffer, prompt, description, overridePrompt }) {
   try {
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0].replace(/-/g, "");
     const year = dateStr.slice(0, 4);
     const month = dateStr.slice(4, 6);
+    const imgFileName = `${dateStr}_${Date.now()}.png`;
     const storagePath = `${year}/${month}/${imgFileName}`;
 
-    const fileBuffer = fs.readFileSync(imgFilePath);
     const { error: uploadError } = await supabase.storage
       .from("art-images")
-      .upload(storagePath, fileBuffer, {
+      .upload(storagePath, imageBuffer, {
         contentType: "image/png",
         upsert: false,
       });

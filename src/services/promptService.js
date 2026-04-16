@@ -1,5 +1,11 @@
 import openai from "../api/openai.js";
 
+const SYSTEM_CONTENT =
+  "You are a creative director for a digital art gallery. Generate prompts for AI image generation that produce results worthy of display as wall art. Output should be visually striking, compositionally strong, and aesthetically intentional — spanning fine art, photography, abstraction, and occasionally whimsical or playful themes. Always specify subject, artistic style, mood, and lighting or color palette. Be specific and avoid generic descriptions.";
+
+const USER_CONTENT =
+  "Generate a single image generation prompt for a digital art gallery display. The prompt should be vivid, specific, and describe a scene that would make compelling wall art. Output only the prompt text, nothing else.";
+
 // Weighted categories — higher weight = appears more often.
 // Total weight = 100 for easy reasoning about percentages.
 const CATEGORIES = [
@@ -37,26 +43,18 @@ function pickWeightedCategory() {
 
 /**
  * Generates a creative art prompt using OpenAI Chat API.
- * @param {string} systemContent - System role content to guide the prompt generation.
- * @param {string} userContent - User instructions for the prompt.
  * @returns {Promise<string>} The generated prompt.
- * @throws {Error} If content is missing or API call fails.
+ * @throws {Error} If API call fails.
  */
-export async function generatePrompt(systemContent, userContent) {
-  if (!systemContent || !userContent) {
-    throw new Error(
-      "System or user content is missing for generating a prompt."
-    );
-  }
-
+export async function generatePrompt() {
   const category = pickWeightedCategory();
-  const enrichedUser = `${userContent}\n\nFor this image, focus on the following category: ${category.label}. Style guidance: ${category.hint}. Be specific — include subject, artistic style, mood, lighting, and color palette.`;
+  const enrichedUser = `${USER_CONTENT}\n\nFor this image, focus on the following category: ${category.label}. Style guidance: ${category.hint}. Be specific — include subject, artistic style, mood, lighting, and color palette.`;
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: systemContent },
+        { role: "system", content: SYSTEM_CONTENT },
         { role: "user", content: enrichedUser },
       ],
       temperature: 0.9,
