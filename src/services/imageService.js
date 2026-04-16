@@ -61,6 +61,10 @@ async function fetchImage(overridePrompt = null) {
     const imageUrl = response.data[0]?.url;
     if (!imageUrl) throw new Error("Image generation returned an empty URL.");
 
+    const revisedPrompt = response.data[0]?.revised_prompt || prompt;
+    const description = await promptService.generateDescription(revisedPrompt);
+    console.log(`Description: ${description}`);
+
     // Determine file paths
     const { dirPath, dateStr } = fileUtils.getTodayDirectory();
     const { imgFileName, imgFilePath } = fileUtils.getNextImageFilePath(
@@ -95,7 +99,7 @@ async function fetchImage(overridePrompt = null) {
 
     // Upload to Supabase Storage and record metadata
     if (supabase) {
-      await uploadToSupabase({ imgFilePath, imgFileName, prompt, overridePrompt, dateStr });
+      await uploadToSupabase({ imgFilePath, imgFileName, prompt, description, overridePrompt, dateStr });
     } else {
       console.warn("Supabase not configured — skipping cloud upload.");
     }
@@ -114,7 +118,7 @@ async function fetchImage(overridePrompt = null) {
  * @param {string|null} opts.overridePrompt - Original SMS override, if any
  * @param {string} opts.dateStr      - YYYYMMDD string used for path partitioning
  */
-async function uploadToSupabase({ imgFilePath, imgFileName, prompt, overridePrompt, dateStr }) {
+async function uploadToSupabase({ imgFilePath, imgFileName, prompt, description, overridePrompt, dateStr }) {
   try {
     const year = dateStr.slice(0, 4);
     const month = dateStr.slice(4, 6);
@@ -146,6 +150,7 @@ async function uploadToSupabase({ imgFilePath, imgFileName, prompt, overrideProm
     const source = overridePrompt ? "sms" : "generated";
     const { error: insertError } = await supabase.from("images").insert({
       prompt,
+      description: description || null,
       image_url: imageUrl,
       source,
       model: "dall-e-3",
