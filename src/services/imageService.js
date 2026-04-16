@@ -4,7 +4,6 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import openai from "../api/openai.js";
-import fileUtils from "../utils/fileUtils.js";
 import * as promptService from "./promptService.js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -29,16 +28,7 @@ async function fetchImage(overridePrompt = null) {
       prompt = overridePrompt;
       console.log(`SMS Override Prompt: ${prompt}`);
     } else {
-      const useGeneratedPrompt = Math.random() > 0.5;
-      prompt = useGeneratedPrompt
-        ? await promptService.generatePrompt()
-        : fileUtils.getRandomUserGeneratedPrompt();
-
-      console.log(
-        useGeneratedPrompt
-          ? `Generated Prompt: ${prompt}`
-          : `Using Random Prompt: ${prompt}`
-      );
+      prompt = await promptService.generatePrompt();
     }
 
     if (!prompt) throw new Error("Insufficient data to proceed.");

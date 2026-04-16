@@ -1,4 +1,35 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import openai from "../api/openai.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROMPTS_FILE = path.resolve(__dirname, "../prompts/prompts.txt");
+
+/**
+ * Returns true if prompts.txt has at least one non-empty line.
+ */
+function hasQueuedPrompts() {
+  if (!fs.existsSync(PROMPTS_FILE)) return false;
+  const lines = fs.readFileSync(PROMPTS_FILE, "utf-8").split("\n");
+  return lines.some((l) => l.trim().length > 0);
+}
+
+/**
+ * Reads prompts.txt and returns the first prompt, removing it from the file.
+ * Returns null if the file is empty or does not exist.
+ */
+function dequeuePrompt() {
+  if (!fs.existsSync(PROMPTS_FILE)) return null;
+  const lines = fs.readFileSync(PROMPTS_FILE, "utf-8").split("\n");
+  const firstNonEmpty = lines.findIndex((l) => l.trim().length > 0);
+  if (firstNonEmpty === -1) return null;
+  const prompt = lines[firstNonEmpty].trim();
+  const remaining = lines.slice(firstNonEmpty + 1);
+  fs.writeFileSync(PROMPTS_FILE, remaining.join("\n"), "utf-8");
+  console.log(`[promptService] Using queued prompt: "${prompt}"`);
+  return prompt;
+}
 
 const SYSTEM_CONTENT =
   "You are a creative director for a digital art gallery. Generate prompts for AI image generation that produce results worthy of display as wall art. Output should be visually striking, compositionally strong, and aesthetically intentional — spanning fine art, photography, abstraction, and occasionally whimsical or playful themes. Always specify subject, artistic style, mood, and lighting or color palette. Be specific and avoid generic descriptions.";
@@ -47,7 +78,12 @@ function pickWeightedCategory() {
  * @throws {Error} If API call fails.
  */
 export async function generatePrompt() {
+  if (hasQueuedPrompts() && Math.random() < 0.5) {
+    return dequeuePrompt();
+  }
+
   const category = pickWeightedCategory();
+  console.log(`[promptService] Generating via AI (category: ${category.label})`);
   const enrichedUser = `${USER_CONTENT}\n\nFor this image, focus on the following category: ${category.label}. Style guidance: ${category.hint}. Be specific — include subject, artistic style, mood, lighting, and color palette.`;
 
   try {
