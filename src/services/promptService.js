@@ -32,7 +32,7 @@ function dequeuePrompt() {
 }
 
 const SYSTEM_CONTENT =
-  "You are a creative director for a digital art gallery. Generate prompts for AI image generation that produce results worthy of display as wall art. Output should be visually striking, compositionally strong, and aesthetically intentional — spanning fine art, photography, abstraction, and occasionally whimsical or playful themes. Always specify subject, artistic style, mood, and lighting or color palette. Be specific and avoid generic descriptions.";
+  "You are a creative director for a digital art gallery. Generate prompts for AI image generation that produce results worthy of display as wall art. Output should be visually striking, compositionally strong, and aesthetically intentional — spanning fine art, photography, abstraction, and occasionally whimsical or playful themes. Always specify subject, artistic style, mood, and lighting or color palette. Be specific and avoid generic descriptions. Do NOT default to overused tropes such as majestic fairytale castles, glowing mushrooms, enchanted forests, floating islands, or generic fantasy landscapes unless the category specifically calls for it.";
 
 const USER_CONTENT =
   "Generate a single image generation prompt for a digital art gallery display. The prompt should be vivid, specific, and describe a scene that would make compelling wall art. Output only the prompt text, nothing else.";
@@ -40,26 +40,25 @@ const USER_CONTENT =
 // Weighted categories — higher weight = appears more often.
 // Total weight = 100 for easy reasoning about percentages.
 const CATEGORIES = [
-  // Fine art & photography (60%)
-  { weight: 10, label: "oil painting landscape", hint: "classical oil painting landscape, rich colors, painterly brushwork, golden hour light" },
-  { weight: 8,  label: "architectural photography", hint: "striking architectural composition, geometric forms, dramatic shadows, urban or monumental subject" },
-  { weight: 8,  label: "abstract expressionism", hint: "bold abstract expressionist painting, dynamic brushstrokes, strong color contrast, emotional energy" },
-  { weight: 8,  label: "portrait fine art", hint: "fine art portrait, dramatic chiaroscuro lighting, painterly style, strong composition" },
-  { weight: 8,  label: "minimalist design", hint: "clean minimalist composition, geometric shapes, limited palette, strong negative space" },
-  { weight: 8,  label: "nature photography", hint: "photorealistic nature scene, macro or landscape, stunning natural light, high detail" },
-  { weight: 6,  label: "impressionist scene", hint: "impressionist style painting, loose brushwork, soft light, everyday scene elevated to fine art" },
-  { weight: 4,  label: "art nouveau", hint: "art nouveau illustration, flowing organic lines, botanical motifs, decorative elegance" },
+  // Fine art & photography (75%)
+  { weight: 12, label: "oil painting landscape", hint: "classical oil painting landscape, rich colors, painterly brushwork, golden hour light — no castles or fantasy elements" },
+  { weight: 10, label: "architectural photography", hint: "striking architectural composition, geometric forms, dramatic shadows, urban or monumental subject" },
+  { weight: 10, label: "abstract expressionism", hint: "bold abstract expressionist painting, dynamic brushstrokes, strong color contrast, emotional energy" },
+  { weight: 10, label: "portrait fine art", hint: "fine art portrait, dramatic chiaroscuro lighting, painterly style, strong composition" },
+  { weight: 10, label: "minimalist design", hint: "clean minimalist composition, geometric shapes, limited palette, strong negative space" },
+  { weight: 10, label: "nature photography", hint: "photorealistic nature scene, macro or wide landscape, stunning natural light, high detail — avoid clichéd mushroom or forest fairy scenes" },
+  { weight: 8,  label: "impressionist scene", hint: "impressionist style painting, loose brushwork, soft light, everyday scene elevated to fine art" },
+  { weight: 5,  label: "art nouveau", hint: "art nouveau illustration, flowing organic lines, botanical or architectural motifs, decorative elegance" },
 
-  // Surreal & creative (25%)
-  { weight: 8,  label: "surrealist fine art", hint: "surrealist composition in the style of Magritte or Dalí, dreamlike but sophisticated, gallery-worthy" },
-  { weight: 7,  label: "concept art", hint: "high-quality concept art, cinematic lighting, detailed world-building, professional digital painting" },
-  { weight: 5,  label: "still life", hint: "classical or modern still life, carefully composed objects, painterly or photographic quality, beautiful lighting" },
-  { weight: 5,  label: "street photography style", hint: "street photography aesthetic, candid urban moment, film grain, strong storytelling composition" },
+  // Surreal & creative (20%)
+  { weight: 6,  label: "surrealist fine art", hint: "surrealist composition in the style of Magritte or Dalí, dreamlike but sophisticated, gallery-worthy — avoid generic fantasy castles" },
+  { weight: 6,  label: "concept art", hint: "high-quality concept art, cinematic lighting, detailed world-building, professional digital painting" },
+  { weight: 4,  label: "still life", hint: "classical or modern still life, carefully composed objects, painterly or photographic quality, beautiful lighting" },
+  { weight: 4,  label: "street photography style", hint: "street photography aesthetic, candid urban moment, film grain, strong storytelling composition" },
 
-  // Whimsical & playful (15%) — still in the mix, just less frequent
-  { weight: 6,  label: "whimsical scene", hint: "charming whimsical scene, could include fairytale castles, cartoon animals, or magical worlds — fun and imaginative" },
-  { weight: 5,  label: "fantasy landscape", hint: "fantasy or sci-fi landscape, imaginative world, cosmic or mythical elements allowed, beautiful and dramatic" },
-  { weight: 4,  label: "playful digital art", hint: "fun and playful digital art, bright colors, could include cute animals or characters, joyful mood" },
+  // Whimsical & playful (5%) — rare, and steered away from overused tropes
+  { weight: 3,  label: "whimsical scene", hint: "charming whimsical illustration, playful and imaginative — avoid clichéd fairytale castles, glowing mushrooms, and generic fantasy tropes" },
+  { weight: 2,  label: "fantasy landscape", hint: "original fantasy or sci-fi landscape, cosmic or mythical elements, beautiful and dramatic — avoid generic floating castles or glowing forests" },
 ];
 
 function pickWeightedCategory() {
