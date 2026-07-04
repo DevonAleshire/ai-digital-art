@@ -1,4 +1,3 @@
-import axios from "axios";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -33,24 +32,24 @@ async function fetchImage(overridePrompt = null) {
 
     if (!prompt) throw new Error("Insufficient data to proceed.");
 
-    // Generate the image with DALL-E 3
+    // Generate the image with gpt-image-1
     const response = await openai.images.generate({
-      model: "dall-e-3",
+      model: "gpt-image-1",
       prompt: `${prompt}\nIf the image includes people or animals, ensure their eyes, faces, and bodies are realistically proportioned and free from distortions, maintaining a natural and cohesive appearance.`,
       n: 1,
-      size: "1792x1024",
+      size: "1536x1024",
+      output_format: "png",
     });
 
-    const imageUrl = response.data[0]?.url;
-    if (!imageUrl) throw new Error("Image generation returned an empty URL.");
+    const b64 = response.data[0]?.b64_json;
+    if (!b64) throw new Error("Image generation returned no image data.");
 
     const revisedPrompt = response.data[0]?.revised_prompt || prompt;
     const description = await promptService.generateDescription(revisedPrompt);
     console.log(`Description: ${description}`);
 
-    // Download image as a buffer
-    const imageResponse = await axios({ url: imageUrl, method: "GET", responseType: "arraybuffer" });
-    const imageBuffer = Buffer.from(imageResponse.data);
+    // Decode base64 image to buffer
+    const imageBuffer = Buffer.from(b64, "base64");
 
     // Save to daily_art.png for the display frame
     fs.writeFileSync(DAILY_ART_PATH, imageBuffer);
@@ -93,7 +92,7 @@ async function uploadToSupabase({ imageBuffer, prompt, description, overrideProm
       });
 
     if (uploadError) {
-      console.error("Supabase Storage upload error:", uploadError.message);
+      console.error("Supabase Storage upload error:", uploadError.message, uploadError);
       return;
     }
 
@@ -113,7 +112,7 @@ async function uploadToSupabase({ imageBuffer, prompt, description, overrideProm
       description: description || null,
       image_url: imageUrl,
       source,
-      model: "dall-e-3",
+      model: "gpt-image-1",
     });
 
     if (insertError) {
