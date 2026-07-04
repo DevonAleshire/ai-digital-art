@@ -5,11 +5,12 @@
 The **AI Digital Art** repository is a Node.js-based application that leverages the **OpenAI API** to create visually stunning digital artwork using the DALL-E 3 model. The generated art is saved locally and can be displayed on a **Raspberry Pi** using the `displayImage.sh` script, making it ideal for creating dynamic digital art displays.
 
 ### Key Features
-- **Randomized Prompts**: Combines static prompts from files with dynamically generated prompts for variety and creativity.
-- **Image Generation**: Produces high-quality images using DALL-E 3, ensuring natural and distortion-free depictions of people and animals.
+- **AI Prompt Generation**: Uses GPT-4o with weighted art categories (75% fine art/photography, 20% surreal/creative, 5% whimsical) to generate gallery-quality prompts.
+- **Queue Override**: Add prompts to `src/prompts/prompts.txt` to queue them for use instead of AI-generated ones.
+- **Image Generation**: Produces high-quality 1792×1024 images using DALL-E 3, ensuring natural and distortion-free depictions of people and animals.
 - **Raspberry Pi Display**: Displays the generated image in fullscreen mode on a monitor connected to a Raspberry Pi.
-- **Customizable Inputs**: Users can define system roles, user roles, and prompts via text files in `src/prompts/`.
-- **SMS Override**: Send a text message to your Twilio number to immediately trigger a new image using your message as the prompt.
+- **SMS Override**: Send a text message to your Twilio number to immediately trigger a new image using your message as the prompt, bypassing the cron schedule.
+- **Supabase Storage**: Generated images and metadata are automatically uploaded to Supabase for the companion web gallery.
 
 ---
 
@@ -46,29 +47,32 @@ The **AI Digital Art** repository is a Node.js-based application that leverages 
    cp .env.example .env
    ```
    ```plaintext
+   NODE_ENV=production
+
+   # OpenAI
    OPENAI_API_KEY=your_openai_api_key_here
 
-   # Twilio (from twilio.com/console)
+   # Twilio (from console.twilio.com)
    TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    TWILIO_AUTH_TOKEN=your_twilio_auth_token
 
-   # Public URL for the SMS webhook (see SMS Override section below)
-   WEBHOOK_BASE_URL=https://your-tunnel-url-here
+   # Public URL for SMS webhook — Cloudflare Tunnel URL (no trailing slash)
+   WEBHOOK_BASE_URL=https://your-subdomain.your-domain.com
 
    PORT=3000
+
+   # Supabase (service role key — server-side only)
+   SUPABASE_URL=https://your-project-id.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+   # Cron schedule (node-cron syntax)
+   # 3x/day at 8am, 12pm, 6pm:  0 8,12,18 * * *
+   # 1x/day at 9am:              0 9 * * *
+   CRON_SCHEDULE=0 8,12,18 * * *
    ```
 
-4. **Ensure Input Files Are Populated**:
-   - The following files in `src/prompts/` must be populated with content:
-     - `src/prompts/role_system.txt`: System role descriptions, one per line.
-     - `src/prompts/role_user.txt`: User prompt instructions, one per line.
-     - `src/prompts/prompts.txt`: Static pre-written prompts, one per line.
-   - Example `prompts.txt`:
-     ```plaintext
-     A serene mountain landscape during sunset
-     A futuristic city skyline at night
-     Abstract art inspired by famous abstract artists
-     ```
+4. **(Optional) Pre-queue prompts**:
+   Add prompts to `src/prompts/prompts.txt`, one per line. When the file has content, there is a 50% chance a queued prompt is used instead of an AI-generated one. Queued prompts are consumed in order and removed after use.
 
 ---
 
@@ -81,8 +85,25 @@ npm start
 ```
 The app will begin generating images on its cron schedule and listen for incoming SMS overrides.
 
+### Run with PM2 (Recommended for Production)
+PM2 keeps the app running in the background and restarts it automatically on crashes or reboots:
+```bash
+sudo npm install -g pm2
+pm2 start npm --name "digital-art" -- start
+pm2 save
+pm2 startup   # follow the printed command to register with systemd
+```
+
+Common PM2 commands:
+```bash
+pm2 logs digital-art       # view live logs
+pm2 restart digital-art    # restart the app
+pm2 stop digital-art       # stop (use before running npm start manually)
+pm2 status                 # check running processes
+```
+
 ### Display the Image on a Raspberry Pi
-1. Ensure the `daily_art.png` file is generated in the repository root.
+1. The generated image is saved to `src/daily_art.png`.
 2. Use the `displayImage.sh` script to display the image:
    ```bash
    ./displayImage.sh
@@ -105,16 +126,15 @@ ai-digital-art/
 ├── node_modules/           # Installed dependencies
 ├── src/
 │   ├── main.js             # Entry point: starts scheduler and SMS webhook server
+│   ├── daily_art.png       # Most recently generated image (auto-created)
 │   ├── api/
 │   │   └── openai.js       # OpenAI client initialisation
 │   ├── archive/            # Past generated images, organised by date
 │   ├── prompts/
-│   │   ├── prompts.txt     # Predefined static prompts
-│   │   ├── role_system.txt # System role descriptions for prompt generation
-│   │   └── role_user.txt   # User role descriptions for prompt generation
+│   │   └── prompts.txt     # Optional queue of pre-written prompts (one per line)
 │   ├── services/
-│   │   ├── imageService.js # Image generation logic (DALL-E 3)
-│   │   └── promptService.js# AI prompt generation (GPT-4o)
+│   │   ├── imageService.js # Image generation logic (DALL-E 3) + Supabase upload
+│   │   └── promptService.js# AI prompt generation (GPT-4o) with weighted categories
 │   └── utils/
 │       ├── fileUtils.js    # File I/O helpers
 │       ├── generalUtils.js # General utilities
@@ -122,17 +142,17 @@ ai-digital-art/
 ├── .env                    # Environment variables (not committed)
 ├── .env.example            # Environment variable template
 ├── .gitignore
-├── displayImage.sh         # Bash script to display image on Raspberry Pi
+├── displayImage.sh         # Bash script to display image on Raspberry Pi (uses absolute path)
 ├── LICENSE
-├── package.json
-└── daily_art.png           # Most recently generated image
+└── package.json
 ```
 
 ### Key Files
 - **`src/main.js`**: Entry point — starts the cron scheduler and Express SMS webhook server.
-- **`src/services/imageService.js`**: Handles DALL-E 3 image generation; accepts an optional SMS override prompt.
-- **`displayImage.sh`**: Bash script to display the generated image on a Raspberry Pi.
-- **`daily_art.png`**: The most recently generated image.
+- **`src/services/imageService.js`**: Handles DALL-E 3 image generation and Supabase upload; accepts an optional SMS override prompt.
+- **`src/services/promptService.js`**: Generates prompts via GPT-4o using weighted art categories. Optionally dequeues from `prompts.txt`.
+- **`displayImage.sh`**: Bash script to display `src/daily_art.png` on a Raspberry Pi using an absolute path.
+- **`src/daily_art.png`**: The most recently generated image.
 
 ---
 
@@ -157,18 +177,30 @@ WEBHOOK_BASE_URL=https://abc123.ngrok-free.app
 ```
 Restart `npm start` after updating `.env`. Note: the ngrok URL changes every restart on the free tier.
 
-**Raspberry Pi (production) — Cloudflare Tunnel:**
-```bash
-# Install cloudflared
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o cloudflared
-chmod +x cloudflared && sudo mv cloudflared /usr/local/bin
+**Raspberry Pi (production) — Cloudflare Tunnel (named, permanent):**
 
-# Authenticate and create a named tunnel
-cloudflared tunnel login
-cloudflared tunnel create ai-digital-art
-cloudflared tunnel route dns ai-digital-art your-subdomain.your-domain.com
+Install `cloudflared` as a system service using the token from the Cloudflare Zero Trust dashboard (Zero Trust → Networks → Tunnels → your tunnel → Configure):
+```bash
+# Debian/Ubuntu (Raspberry Pi OS)
+curl -L https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg > /dev/null
+# (follow the full install command shown in the Cloudflare dashboard for Debian)
+sudo cloudflared service install <your-token>
 ```
-Cloudflare Tunnel gives you a **stable URL that never changes**, so you only need to configure Twilio once. Run it as a `systemd` service so it starts on boot.
+
+Then in the Cloudflare dashboard, add a **Public Hostname** route:
+- Subdomain + Domain → your permanent public URL (e.g. `https://sms.yourdomain.com`)
+- Service: `http://localhost:3000`
+
+Set in `.env`:
+```plaintext
+WEBHOOK_BASE_URL=https://sms.yourdomain.com
+```
+
+Manage the tunnel service on the Pi:
+```bash
+sudo systemctl status cloudflared
+sudo systemctl restart cloudflared
+```
 
 ### 3. Configure Twilio Webhook
 1. In the Twilio Console, go to your phone number's settings.
@@ -214,13 +246,16 @@ You can modify the `displayImage.sh` script to adjust display behavior:
 
 ### Console Logs
 ```plaintext
-System Content: You are an assistant generating highly creative art prompts.
-User Content: Generate a whimsical and imaginative prompt.
-Random Prompt: A tranquil forest with glowing blue trees.
+SMS webhook listening on port 3000
+Application running...
 
-Using Random Prompt: A tranquil forest with glowing blue trees
-Image URL: https://example.com/path-to-image
-Image successfully saved to ./daily_art.png
+⏱️  [4/18/2026, 8:00:00 AM] Starting image fetch...
+[promptService] Generating via AI (category: oil painting landscape)
+Description: A sweeping coastal cliff at golden hour, rendered in warm impasto oils.
+Saved daily_art.png
+✅ Completed in 12340.00ms
+
+📱 SMS override received: "a lone lighthouse on a rocky cliff at dusk"
 ```
 
 ### Display on Raspberry Pi
@@ -250,11 +285,13 @@ The image is displayed fullscreen on the connected monitor using `displayImage.s
      sudo apt-get install feh
      ```
 
-5. **Permission Denied**:
-   - Error: `Permission denied ./displayImage.sh`
-   - Solution: Make the script executable:
+5. **Port Already in Use (`EADDRINUSE :3000`)**:
+   - A previous instance (often PM2) is still running on port 3000.
+   - Solution:
      ```bash
-     chmod +x displayImage.sh
+     pm2 stop digital-art      # if using PM2
+     sudo fuser -k 3000/tcp    # force-kill whatever is on the port
+     npm start
      ```
 
 ---
